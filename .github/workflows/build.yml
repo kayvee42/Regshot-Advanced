@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: microsoft/setup-msbuild@v2
+
+      # The project targets toolset v142 (VS 2019); the runner has VS 2022 (v143).
+      - name: Build x64 Release Unicode
+        run: msbuild regshot_vs2010.sln /m /p:Configuration="Release Unicode" /p:Platform=x64 /p:PlatformToolset=v143
+
+      # Regshot loads its templates from a Templates folder next to the exe
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Get-ChildItem bin -Recurse -Filter *.exe | Copy-Item -Destination dist
+          Copy-Item -Recurse Templates dist/Templates
+          Copy-Item files/regshot.ini, files/language.ini, files/ReadMe.txt, files/license_lgpl-2.1.txt dist/
+          Get-ChildItem -Recurse dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Regshot-x64-Unicode
+          path: dist
