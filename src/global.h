@@ -625,6 +625,7 @@ extern BOOL bNoOutput;
 BOOL    LoadSettingsFromIni(HWND hDlg);
 BOOL    SaveSettingsToIni(HWND hDlg);
 SKIPLIST* FillSkipList(SKIPLIST* pList, LPTSTR lpszIniSection, LPTSTR lpszSectionContent, int iList);
+VOID    AppendToExtDir(LPTSTR lpszDir);
 BOOL    IsInSkipList(LPTSTR lpszString, SKIPLIST * lpSkipList, BOOL bForOutput);
 BOOL    IsInWhiteList(LPTSTR lpszString, BOOL bForOutput);
 LPTSTR  FindKeyInIniSection(LPTSTR lpgrszSection, LPTSTR lpszSearch, size_t cchSectionLen, size_t cchSearchLen);

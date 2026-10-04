@@ -657,6 +657,27 @@ BOOL SaveSettingsToIni(HWND hDlg)
 }
 
 //-------------------------------------------------------------
+// Append a dir to the ';' separated scan dir list lpszExtDir
+// (EXTDIRLEN TCHARs); a dir that does not fit anymore is skipped
+//-------------------------------------------------------------
+VOID AppendToExtDir(LPTSTR lpszDir)
+{
+    size_t cchExtDir;
+
+    if ((NULL == lpszExtDir) || (NULL == lpszDir)) {
+        return;
+    }
+    cchExtDir = _tcslen(lpszExtDir);
+    if (cchExtDir + 1 + _tcslen(lpszDir) >= EXTDIRLEN) {
+        return;
+    }
+    if (0 < cchExtDir) {
+        _tcscat(lpszExtDir, TEXT(";"));
+    }
+    _tcscat(lpszExtDir, lpszDir);
+}
+
+//-------------------------------------------------------------
 // SkipLists aus den Settings aufbauen
 //-------------------------------------------------------------
 SKIPLIST* FillSkipList(SKIPLIST* pList, LPTSTR lpszIniSection, LPTSTR lpszSectionContent, int iList)
@@ -676,6 +697,9 @@ SKIPLIST* FillSkipList(SKIPLIST* pList, LPTSTR lpszIniSection, LPTSTR lpszSectio
     pList[i + iRowsCount].lpSkipString = NULL;                                                                           // saftey NULL pointer
     cchSection = GetPrivateProfileSection(lpszIniSection, lpszSectionContent, MAX_INI_SECTION_CHARS, lpszRegshotIni);   // length incl. double NULL character
     pSubstr = lpszSectionContent;
+    if ((iList == FILESCAN) && (NULL != lpszExtDir)) {
+        lpszExtDir[0] = (TCHAR)'\0';                                                                                    // rebuilt below, don't append to the previous list
+    }
     while ((0 < cchSection) && ('\0' != *pSubstr)) {
         size_t substrLen = _tcslen(pSubstr);
         LPTSTR pos = _tcschr(pSubstr, _T('='));                                                                         // split substring on '=' char
@@ -703,14 +727,7 @@ SKIPLIST* FillSkipList(SKIPLIST* pList, LPTSTR lpszIniSection, LPTSTR lpszSectio
             if (0 == _tcscmp(++pos, TEXT("1"))) {
                 pList[i + iRowsCount].bSkipKeyActive = TRUE;
                 if (iList == FILESCAN) {
-                    if (pList[i + iRowsCount].lpSkipString != NULL) {
-                        if (i + iRowsCount == 0)
-                            _tcscpy(lpszExtDir, pList[i + iRowsCount].lpSkipString);
-                        else {
-                            _tcscat(lpszExtDir, TEXT(";"));
-                            _tcscat(lpszExtDir, pList[i + iRowsCount].lpSkipString);
-                        }
-                    }
+                    AppendToExtDir(pList[i + iRowsCount].lpSkipString);
                 }
             }
             i++;

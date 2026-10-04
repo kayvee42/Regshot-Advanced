@@ -281,15 +281,15 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 // TODO: Subdirectory TITLE
             nLen = _tcslen(lpszOutputPath);
-            if (0 < nLen) {
+            if ((0 < nLen) && (MAX_PATH > nLen)) {
                 nLen--;
                 if (lpszOutputPath[nLen] != (TCHAR)'\\') {
                     _tcscat(lpszOutputPath, TEXT("\\"));
                 }
             }
-            _tcscat(lpszOutputPath, lpszTitle);
+            _tcsncat(lpszOutputPath, lpszTitle, MAX_PATH - _tcslen(lpszOutputPath));
             nLen = _tcslen(lpszOutputPath);
-            if (0 < nLen) {
+            if ((0 < nLen) && (MAX_PATH > nLen)) {
                 nLen--;
                 if (lpszOutputPath[nLen] != (TCHAR)'\\') {
                     _tcscat(lpszOutputPath, TEXT("\\"));
@@ -302,6 +302,12 @@ BOOL CALLBACK DialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
             break;
 
         case WM_COMMAND:
+            // While a shot, load, save or compare is running, UI_Refresh() still dispatches
+            // messages. Only let Stop/Quit through, so the running code can't be re-entered
+            // (e.g. "Clear all" freeing the shot that is being built).
+            if (bRunning && (IDC_QUIT != LOWORD(wParam)) && (IDCANCEL != LOWORD(wParam)) && (ID_FILE_QUIT != LOWORD(wParam))) {
+                return(TRUE);
+            }
             switch (LOWORD(wParam)) {
                 case IDC_1STSHOT:  // Button: "1st Shot"
                     lpMenuShot = &Shot1;  // Popup window messages are for 1st Shot

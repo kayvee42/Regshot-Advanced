@@ -105,7 +105,7 @@ VOID WritePart(HANDLE hFile, DWORD nActionType, LPCOMPRESULT lpStartCR, LPOUTPUT
     cbHTML_BR = 0;
     cbCRLF = 0;
 
-    LPTSTR lpszPreviousKeyName = MYALLOC(EXTDIRLEN * sizeof(TCHAR));
+    LPTSTR lpszPreviousKeyName = MYALLOC0(sizeof(TCHAR));  // empty string, replaced by the last key name
     LPTSTR lpszActualKeyName;
     BOOL bSuppressKey = FALSE;
 
@@ -121,7 +121,6 @@ VOID WritePart(HANDLE hFile, DWORD nActionType, LPCOMPRESULT lpStartCR, LPOUTPUT
 
     fColor = FALSE;
     LPTSTR lpszFullName = NULL;
-    _tcscpy(lpszPreviousKeyName, lpszEmpty);
 
     for (lpCR = lpStartCR; NULL != lpCR; lpCR = lpCR->lpNextCR) {
         iResultStringsMac = 0;
@@ -155,10 +154,12 @@ VOID WritePart(HANDLE hFile, DWORD nActionType, LPCOMPRESULT lpStartCR, LPOUTPUT
                     lpszActualKeyName = GetWholeKeyName(((LPVALUECONTENT)(lpCR->lpContentOld))->lpFatherKC, FALSE);
                     if (0 == _tcscmp(lpszActualKeyName, lpszPreviousKeyName)) {
                         bSuppressKey = TRUE;
+                        MYFREE(lpszActualKeyName);
                     }
-                    else
-                        _tcscpy(lpszPreviousKeyName, lpszActualKeyName);
-                    MYFREE(lpszActualKeyName);
+                    else {
+                        MYFREE(lpszPreviousKeyName);
+                        lpszPreviousKeyName = lpszActualKeyName;
+                    }
                 }
 
                 if ((DIRDEL == nActionType) || (DIRADD == nActionType) || (DIRMODI == nActionType) || (FILEDEL == nActionType) || (FILEADD == nActionType) || (FILEMODI == nActionType)) {
@@ -202,10 +203,12 @@ VOID WritePart(HANDLE hFile, DWORD nActionType, LPCOMPRESULT lpStartCR, LPOUTPUT
                     lpszActualKeyName = GetWholeKeyName(((LPVALUECONTENT)(lpCR->lpContentNew))->lpFatherKC, FALSE);
                     if (0 == _tcscmp(lpszActualKeyName, lpszPreviousKeyName)) {
                         bSuppressKey = TRUE;
+                        MYFREE(lpszActualKeyName);
                     }
-                    else
-                        _tcscpy(lpszPreviousKeyName, lpszActualKeyName);
-                    MYFREE(lpszActualKeyName);
+                    else {
+                        MYFREE(lpszPreviousKeyName);
+                        lpszPreviousKeyName = lpszActualKeyName;
+                    }
                 }
             
                 if ((DIRDEL == nActionType) || (DIRADD == nActionType) || (DIRMODI == nActionType) || (FILEDEL == nActionType) || (FILEADD == nActionType) || (FILEMODI == nActionType)) {
@@ -319,7 +322,7 @@ VOID WritePartNew(HANDLE hFile, DWORD nActionType, LPCOMPRESULTNEW lpStartCR, LP
     LPTSTR* rgszResultStrings = MYALLOC0(nBuffersize);
     size_t iResultStringsMac;
 
-    LPTSTR lpszPreviousKeyName = MYALLOC(EXTDIRLEN * sizeof(TCHAR));
+    LPTSTR lpszPreviousKeyName = MYALLOC0(sizeof(TCHAR));  // empty string, replaced by the last key name
     LPTSTR lpszActualKeyName;
     BOOL bSuppressKey = FALSE;
 
@@ -369,10 +372,12 @@ VOID WritePartNew(HANDLE hFile, DWORD nActionType, LPCOMPRESULTNEW lpStartCR, LP
                         lpszActualKeyName = GetWholeKeyName(((LPVALUECONTENT)(lpCR->lpContentOld))->lpFatherKC, FALSE);
                         if (0 == _tcscmp(lpszActualKeyName, lpszPreviousKeyName)) {
                             bSuppressKey = TRUE;
+                            MYFREE(lpszActualKeyName);
                         }
-                        else
-                            _tcscpy(lpszPreviousKeyName, lpszActualKeyName);
-                        MYFREE(lpszActualKeyName);
+                        else {
+                            MYFREE(lpszPreviousKeyName);
+                            lpszPreviousKeyName = lpszActualKeyName;
+                        }
                     }
                 }
                 if ((KEYDEL == lpCR->nActionType) || (KEYADD == lpCR->nActionType) ||
@@ -420,10 +425,12 @@ VOID WritePartNew(HANDLE hFile, DWORD nActionType, LPCOMPRESULTNEW lpStartCR, LP
                         lpszActualKeyName = GetWholeKeyName(((LPVALUECONTENT)(lpCR->lpContentNew))->lpFatherKC, FALSE);
                         if (0 == _tcscmp(lpszActualKeyName, lpszPreviousKeyName)) {
                             bSuppressKey = TRUE;
+                            MYFREE(lpszActualKeyName);
                         }
-                        else
-                            _tcscpy(lpszPreviousKeyName, lpszActualKeyName);
-                        MYFREE(lpszActualKeyName);
+                        else {
+                            MYFREE(lpszPreviousKeyName);
+                            lpszPreviousKeyName = lpszActualKeyName;
+                        }
                     }
                 }
                 if ((KEYDEL == lpCR->nActionType) || (KEYADD == lpCR->nActionType) ||

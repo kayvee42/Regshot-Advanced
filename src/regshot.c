@@ -1700,6 +1700,9 @@ BOOL OutputComparisonResult(VOID)
         lpszValue[4] = (TCHAR)'\0';
         nOutMaxResultLines = _tstoi(lpszValue);
     }
+    if (0 >= nOutMaxResultLines) {
+        nOutMaxResultLines = 10;
+    }
     MYFREE(lpszValue);
 
     DWORD cchDataline;
@@ -2345,10 +2348,8 @@ LPKEYCONTENT GetRegistrySnap(LPREGSHOT lpShot, HKEY hRegKey, LPTSTR lpszRegKeyNa
         lpKC->cchKeyName = _tcslen(lpKC->lpszKeyName);
 
         // Check if key is to be excluded
-        lpszFullNameUI = GetWholeKeyName(lpKC, FALSE);
         if (NULL != pRegSkipList[0].lpSkipString) {  // only if there is something to exclude
             if ((NULL != lpKC->lpszKeyName) && (IsInSkipList(lpKC->lpszKeyName, pRegSkipList, FALSE))) {
-                MYFREE(lpszFullNameUI);
                 FreeAllKeyContents(lpKC);
                 return NULL;
             }
@@ -2356,7 +2357,6 @@ LPKEYCONTENT GetRegistrySnap(LPREGSHOT lpShot, HKEY hRegKey, LPTSTR lpszRegKeyNa
             lpszFullName = GetWholeKeyName(lpKC, FALSE);
             if (IsInSkipList(lpszFullName, pRegSkipList, FALSE)) {
                 MYFREE(lpszFullName);
-                MYFREE(lpszFullNameUI);
                 FreeAllKeyContents(lpKC);
                 return NULL;
             }
@@ -2458,7 +2458,7 @@ LPKEYCONTENT GetRegistrySnap(LPREGSHOT lpShot, HKEY hRegKey, LPTSTR lpszRegKeyNa
                 }
 
                 // Check if value is to be excluded
-                if (NULL != pRegSkipList[i].lpSkipString) {  // only if there is something to exclude
+                if (NULL != pRegSkipList[0].lpSkipString) {  // only if there is something to exclude
                     if ((NULL != lpVC->lpszValueName) && (IsInSkipList(lpVC->lpszValueName, pRegSkipList, FALSE))) {
                         FreeAllValueContents(lpVC);
                         continue;  // ignore this entry and continue with next brother value
@@ -2517,6 +2517,7 @@ LPKEYCONTENT GetRegistrySnap(LPREGSHOT lpShot, HKEY hRegKey, LPTSTR lpszRegKeyNa
     // Update counters display
     nCurrentTime = GetTickCount64();
     if (REFRESHINTERVAL < (nCurrentTime - nLastTime)) {
+        lpszFullNameUI = GetWholeKeyName(lpKC, FALSE);
         UI_UpdateCounters(asLangTexts[iszTextKey].lpszText, asLangTexts[iszTextValue].lpszText, lpShot->stCounts.cKeys, lpShot->stCounts.cValues, asLangTexts[iszTextKey].lpszText, lpszFullNameUI);
         MYFREE(lpszFullNameUI);
     }
@@ -2940,15 +2941,16 @@ VOID SaveShot(LPREGSHOT lpShot)
     MYFREE(lpszTempDirBuffer);
     
 //    cchTitle = GetDlgItemText(hMainWnd, IDC_EDITTITLE, lpszTitle, EXTDIRLEN);  // length incl. NULL character
+    // lpszOutputPath and filepath hold MAX_PATH+1 TCHARs; keep every append within MAX_PATH chars
     cchString = _tcslen(lpszOutputPath);
-    if ((0 < cchString) && ((TCHAR)'\\' != *(lpszOutputPath + cchString - 1))) {
+    if ((0 < cchString) && (MAX_PATH > cchString) && ((TCHAR)'\\' != *(lpszOutputPath + cchString - 1))) {
         *(lpszOutputPath + cchString) = (TCHAR)'\\';
         *(lpszOutputPath + cchString + 1) = (TCHAR)'\0';  // bug found by "itschy" <itschy@lycos.de> 1.61d->1.61e
         cchString++;
     }
-    _tcscat(lpszOutputPath, lpszTitle);
+    _tcsncat(lpszOutputPath, lpszTitle, MAX_PATH - _tcslen(lpszOutputPath));
     cchString = _tcslen(lpszOutputPath);
-    if ((0 < cchString) && ((TCHAR)'\\' != *(lpszOutputPath + cchString - 1))) {
+    if ((0 < cchString) && (MAX_PATH > cchString) && ((TCHAR)'\\' != *(lpszOutputPath + cchString - 1))) {
         *(lpszOutputPath + cchString) = (TCHAR)'\\';
         *(lpszOutputPath + cchString + 1) = (TCHAR)'\0';  // bug found by "itschy" <itschy@lycos.de> 1.61d->1.61e
         cchString++;
@@ -2958,14 +2960,15 @@ VOID SaveShot(LPREGSHOT lpShot)
 //    ZeroMemory(filepath, sizeof(filepath));                         // Clear Save File Name result buffer
     if (bNoGui) {
         _tcscpy(filepath, lpszOutputPath);
-        _tcscat(filepath, lpszTitle);
-        _tcscat(filepath, (lpShot->fFirst ? TEXT("_1") : TEXT("_2")));
-        _tcscat(filepath, TEXT("."));
-        _tcscat(filepath, lpszRegshotFileDefExt);
+        _tcsncat(filepath, lpszTitle, MAX_PATH - _tcslen(filepath));
+        _tcsncat(filepath, (lpShot->fFirst ? TEXT("_1") : TEXT("_2")), MAX_PATH - _tcslen(filepath));
+        _tcsncat(filepath, TEXT("."), MAX_PATH - _tcslen(filepath));
+        _tcsncat(filepath, lpszRegshotFileDefExt, MAX_PATH - _tcslen(filepath));
     }
     else {
-        _tcscpy(filepath, lpszTitle);
-        _tcscat(filepath, (lpShot->fFirst ? TEXT("_1") : TEXT("_2")));
+        filepath[0] = (TCHAR)'\0';
+        _tcsncat(filepath, lpszTitle, MAX_PATH);
+        _tcsncat(filepath, (lpShot->fFirst ? TEXT("_1") : TEXT("_2")), MAX_PATH - _tcslen(filepath));
     }
 
     // TODO: Subdirectory TITLE
@@ -4102,7 +4105,6 @@ BOOL CheckSavingShots(HWND hDlg, LPREGSHOT lpShot)
     //           asLangTexts[iszTextChronology].lpszText,
     //           asLangTexts[iszTextWarning].lpszText
     //          );
-    lpszSavingTitle[SIZEOF_SAVINGBOX - 1] = (TCHAR)'\0';  // safety NULL char
     nDialogAnswer = MessageBox(hDlg, lpszSavingBox, lpszSavingTitle, MB_ICONQUESTION | MB_YESNOCANCEL | MB_DEFBUTTON2);
     if (IDCANCEL == nDialogAnswer) {
         return FALSE;

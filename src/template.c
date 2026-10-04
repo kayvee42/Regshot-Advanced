@@ -172,8 +172,20 @@ LPTSTR ReplaceDataMacros(LPTSTR lpszDataLineMacro, LPTSTR lpszText, LPVOID lpCon
         pos = _tcsstr(++pos, macroStart);
     }
 
-    if (i == 0)
-        return lpszDataLineMacro;
+    if (i == 0) {
+        // Recursive pass (no text/content): the input is already our own buffer, hand it back
+        if ((lpszText == NULL) && (lpContent == NULL))
+            return lpszDataLineMacro;
+        // Otherwise the input is a global template line (or points into one), but callers
+        // free the result, so always return a copy
+        LPTSTR lpszCopy = NULL;
+        if (lpszDataLineMacro != NULL) {
+            lpszCopy = MYALLOC((_tcslen(lpszDataLineMacro) + 1) * sizeof(TCHAR));
+            if (lpszCopy != NULL)
+                _tcscpy(lpszCopy, lpszDataLineMacro);
+        }
+        return lpszCopy;
+    }
     else
     {
         LPTSTR pROOTKEYNAME     = TEXT("{{##ROOTKEYNAME}}");

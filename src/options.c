@@ -284,16 +284,7 @@ BOOL CALLBACK DlgSkipProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                     pSkipList[position].bSkipKeyActive = ListView_GetCheckState(hWndListViewSkip, i);
                     pSkipList[position].bDeleted = FALSE;
                     if ((iPropertyPage == PROP_SCANS) && (ListView_GetCheckState(hWndListViewSkip, i))) {
-                        if (pSkipList[position].lpSkipString != NULL) {
-                            if (pSkipList[position].lpSkipString != NULL) {
-                                if (_tcslen(lpszExtDir) == 0)
-                                    _tcscpy(lpszExtDir, pSkipList[position].lpSkipString);
-                                else {
-                                    _tcscat(lpszExtDir, TEXT(";"));
-                                    _tcscat(lpszExtDir, pSkipList[position].lpSkipString);
-                                }
-                            }
-                        }
+                        AppendToExtDir(pSkipList[position].lpSkipString);
                     }
                 }
                 else {
@@ -308,14 +299,7 @@ BOOL CALLBACK DlgSkipProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                         pSkipList[count].bFile = TRUE;
                     
                     if ((iPropertyPage == PROP_SCANS) && (ListView_GetCheckState(hWndListViewSkip, i))) {
-                        if (pSkipList[count].lpSkipString != NULL) {
-                            if (_tcslen(lpszExtDir) == 0)
-                                _tcscpy(lpszExtDir, pSkipList[count].lpSkipString);
-                            else {
-                                _tcscat(lpszExtDir, TEXT(";"));
-                                _tcscat(lpszExtDir, pSkipList[count].lpSkipString);
-                            }
-                        }
+                        AppendToExtDir(pSkipList[count].lpSkipString);
                     }
                     memset(&lvSkipItem, 0, sizeof(lvSkipItem));                            
                     lvSkipItem.mask = LVIF_TEXT;                                           
@@ -560,10 +544,17 @@ BOOL CALLBACK DlgSkipProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
                 if ((TRUE != pSkipList[i].bAutomaticallyAdded) && (TRUE != pSkipList[i].bDeleted)) {
                     if ((pSkipList[i].bFile && (iPropertyPage == PROP_FILES)) || 
                         (!pSkipList[i].bFile && (iPropertyPage != PROP_FILES))) {
-                        lpszBuffer = MYALLOC0(MAX_PATH * sizeof(TCHAR));
+                        UINT cchBuffer = (UINT)_tcslen(pSkipList[i].lpSkipString) + 1;
+                        if (MAX_PATH > cchBuffer) {
+                            cchBuffer = MAX_PATH;
+                        }
+                        lpszBuffer = MYALLOC0(cchBuffer * sizeof(TCHAR));
+                        if (NULL == lpszBuffer) {
+                            continue;
+                        }
                         _tcscpy(lpszBuffer, pSkipList[i].lpSkipString);
                         if ((iPropertyPage != PROP_REGS) && (iPropertyPage != PROP_COMMON)) {
-                            if (!PathUnExpandEnvStrings(pSkipList[i].lpSkipString, lpszBuffer, MAX_PATH)) {
+                            if (!PathUnExpandEnvStrings(pSkipList[i].lpSkipString, lpszBuffer, cchBuffer)) {
                                 _tcscpy(lpszBuffer, pSkipList[i].lpSkipString);
                             }
                         }
