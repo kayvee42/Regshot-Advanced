@@ -453,7 +453,7 @@ BOOL InsertRootItems(HWND hwndTV, int iPropertyPage)
             lpszDrive = pDirScanList[i].lpSkipString;
             pos = _tcsrchr(pDirScanList[i].lpSkipString, _T('\\'));
             if (pDirScanList[i].lpSkipString + _tcslen(pDirScanList[i].lpSkipString) - 1 == pos) {
-                lpszDrive = MYALLOC0(_tcslen((pDirScanList[i].lpSkipString) + 1) * sizeof(TCHAR));
+                lpszDrive = MYALLOC0((_tcslen(pDirScanList[i].lpSkipString) + 1) * sizeof(TCHAR));
                 if (lpszDrive != NULL) {
                     _tcscpy(lpszDrive, pDirScanList[i].lpSkipString);
                     lpszDrive[_tcslen(pDirScanList[i].lpSkipString) - 1] = _T('\0');
@@ -467,6 +467,9 @@ BOOL InsertRootItems(HWND hwndTV, int iPropertyPage)
             tvinsert.item.iSelectedImage = 0;
             hRootItem = TreeView_InsertItem(hwndTV, &tvinsert);
             TreeView_SetCheckState(hwndTV, hRootItem, TRUE);
+            // tree view keeps its own copy of the item text
+            if (lpszDrive != pDirScanList[i].lpSkipString)
+                MYFREE(lpszDrive);
         }
     }
 
@@ -481,7 +484,9 @@ HTREEITEM FindOrCreateTreeItem(HWND hwndTV, HTREEITEM hParent, HTREEITEM hItem, 
 {
     TVITEM pitem;
     TV_INSERTSTRUCT tvinsert;
-    LPTSTR lpszNodeTextTV = MYALLOC0((_TREEITEMTEXT_ + 1) * sizeof(TCHAR));
+    // one char longer than the searched text, so a longer item text is truncated to a non-match
+    int cchNodeTextTV = (int)_tcslen(lpszNodeText) + 2;
+    LPTSTR lpszNodeTextTV = MYALLOC0(cchNodeTextTV * sizeof(TCHAR));
     int iSelectedImage = 0;
 
     while (TRUE) {
@@ -489,7 +494,7 @@ HTREEITEM FindOrCreateTreeItem(HWND hwndTV, HTREEITEM hParent, HTREEITEM hItem, 
         pitem.hItem = hItem;
         pitem.mask = TVIF_TEXT;
         pitem.pszText = lpszNodeTextTV;
-        pitem.cchTextMax = MAX_PATH;
+        pitem.cchTextMax = cchNodeTextTV;
         TreeView_GetItem(hwndTV, &pitem);
         if ((pitem.pszText == NULL) || _tcscmp(lpszNodeText, pitem.pszText) == 0) {
             break;
@@ -536,7 +541,7 @@ BOOL InitTreeViewItems(HWND hwndTV, int iPropertyPage)
     TV_INSERTSTRUCT tvinsert;
     LPCOMPRESULTNEW lpCR;
     LPTSTR lpszValueName = NULL;
-    LPTSTR lpszFullNameTV = MYALLOC0((MAX_PATH+1) * sizeof(TCHAR));
+    LPTSTR lpszFullNameTV = NULL;
     LPTSTR pos = NULL;
     LPTSTR NamePartTV = NULL;
     BOOL bKey = TRUE;
@@ -557,14 +562,16 @@ BOOL InitTreeViewItems(HWND hwndTV, int iPropertyPage)
             continue;
 
         if ((NULL != lpCR->lpContentOld) && (NULL == lpCR->lpContentNew)) {
-            if (!CheckFilters(lpCR->lpContentOld, lpszFullNameTV, &lpszValueName, lpCR->nActionType, &bKey))
+            if (!CheckFilters(lpCR->lpContentOld, &lpszFullNameTV, &lpszValueName, lpCR->nActionType, &bKey))
                 continue;
         }
         if (NULL != lpCR->lpContentNew) {
-            if (!CheckFilters(lpCR->lpContentNew, lpszFullNameTV, &lpszValueName, lpCR->nActionType, &bKey))
+            if (!CheckFilters(lpCR->lpContentNew, &lpszFullNameTV, &lpszValueName, lpCR->nActionType, &bKey))
                 continue;
         }
-        
+        if (NULL == lpszFullNameTV)
+            continue;
+
         NamePartTV = lpszFullNameTV;
         pos = _tcschr(lpszFullNameTV, _T('\\'));
         
@@ -615,11 +622,11 @@ BOOL InitTreeViewItems(HWND hwndTV, int iPropertyPage)
             hItem = TreeView_GetNextItem(hwndTV, hItem, TVGN_CHILD);
             hItem = FindOrCreateTreeItem(hwndTV, hParent, hItem, nLevel, lpszValueName, iPropertyPage, bKey, lpCR);
         }
+
+        MYFREE(lpszFullNameTV);
+        lpszFullNameTV = NULL;
     }
 
-    if (lpszFullNameTV != NULL)
-        MYFREE(lpszFullNameTV);
-    
     return TRUE;
 }
 
@@ -712,11 +719,28 @@ BOOL InitTreeViewImageLists(HWND hwndTV)
 }
 
 //--------------------------------------------------
-// Check actual content against filter 
+// Copy of a name in a buffer of exactly the needed
+// size (caller frees it)
 //--------------------------------------------------
-BOOL CheckFilters(LPVOID lpContent, LPTSTR lpszKeyName, LPTSTR * lpszValueName, DWORD nActionType, BOOL * pbKey)
+static LPTSTR DuplicateName(LPTSTR lpszName)
+{
+    LPTSTR lpszCopy = NULL;
+    if (lpszName != NULL) {
+        lpszCopy = MYALLOC((_tcslen(lpszName) + 1) * sizeof(TCHAR));
+        if (lpszCopy != NULL)
+            _tcscpy(lpszCopy, lpszName);
+    }
+    return lpszCopy;
+}
+
+//--------------------------------------------------
+// Check actual content against filter
+// On success *lplpszKeyName receives a copy of the full name, which the caller frees
+//--------------------------------------------------
+BOOL CheckFilters(LPVOID lpContent, LPTSTR * lplpszKeyName, LPTSTR * lpszValueName, DWORD nActionType, BOOL * pbKey)
 {
     LPTSTR lpszFullName = NULL;
+    LPTSTR lpszKeyName = NULL;
     if ((KEYDEL == nActionType) || (KEYADD == nActionType)) {
         *pbKey = TRUE;
         lpszFullName = GetWholeKeyName(lpContent, FALSE);
@@ -727,17 +751,19 @@ BOOL CheckFilters(LPVOID lpContent, LPTSTR lpszKeyName, LPTSTR * lpszValueName, 
         if ((((LPVALUECONTENT)(lpContent))->lpszValueName != NULL) && (lpszValueName != NULL))
             *lpszValueName = ((LPVALUECONTENT)(lpContent))->lpszValueName;
     }
-    if ((lpszKeyName != NULL) && (lpszFullName != NULL))
-        _tcscpy(lpszKeyName, lpszFullName);
+    // copy before filtering, as IsInSkipList() may shorten lpszFullName
+    lpszKeyName = DuplicateName(lpszFullName);
 
     if ((KEYDEL == nActionType) || (KEYADD == nActionType) ||
         (VALDEL == nActionType) || (VALADD == nActionType) || (VALMODI == nActionType)) {
         if (!IsInWhiteList(lpszFullName, (bRegWhitelistAdded ? TRUE : FALSE))) {
             MYFREE(lpszFullName);
+            MYFREE(lpszKeyName);
             return FALSE;
         }
         if (IsInSkipList(lpszFullName, pRegSkipList, (bRegSkipAdded ? TRUE : FALSE))) {
             MYFREE(lpszFullName);
+            MYFREE(lpszKeyName);
             return FALSE;
         }
     }
@@ -748,14 +774,19 @@ BOOL CheckFilters(LPVOID lpContent, LPTSTR lpszKeyName, LPTSTR * lpszValueName, 
         else
             *pbKey = FALSE;
         lpszFullName = GetWholeFileName(lpContent, 0, NULL);
-        if ((lpszKeyName != NULL) && (lpszFullName != NULL))
-            _tcscpy(lpszKeyName, lpszFullName);
+        lpszKeyName = DuplicateName(lpszFullName);
         if (IsInSkipList(lpszFullName, pFileSkipList, (bFileSkipAdded ? TRUE : FALSE))) {
             MYFREE(lpszFullName);
+            MYFREE(lpszKeyName);
             return FALSE;
         }
     }
     MYFREE(lpszFullName);
+
+    if (lplpszKeyName != NULL)
+        *lplpszKeyName = lpszKeyName;
+    else
+        MYFREE(lpszKeyName);
 
     return TRUE;
 }

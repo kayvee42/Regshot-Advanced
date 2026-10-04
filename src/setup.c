@@ -742,8 +742,8 @@ BOOL IsInSkipList(LPTSTR lpszString, SKIPLIST* pSkipList, BOOL bForOutput)  // t
     if ((BOOL)SendMessage(GetDlgItem(hMainWnd, IDC_CHECK_NOFILTERS), BM_GETCHECK, (WPARAM)0, (LPARAM)0))
         return FALSE;
 
-    lpszStringStart = MYALLOC(EXTDIRLEN * sizeof(TCHAR));
-    if (lpszStringStart != NULL)
+    lpszStringStart = MYALLOC(((NULL != lpszString) ? _tcslen(lpszString) + 1 : 1) * sizeof(TCHAR));
+    if ((lpszStringStart != NULL) && (lpszString != NULL))
         _tcscpy(lpszStringStart, lpszString);
 
     for (i = 0; (NULL != pSkipList[i].lpSkipString); i++) {
@@ -788,12 +788,12 @@ BOOL IsInWhiteList(LPTSTR lpszString, BOOL bForOutput)  // tfx skip the list
     if (!bWhiteListeActive)
         return TRUE;
 
-    lpszStringBackup = MYALLOC(EXTDIRLEN * sizeof(TCHAR));
-    if (lpszStringBackup != NULL)
+    lpszStringBackup = MYALLOC(((NULL != lpszString) ? _tcslen(lpszString) + 1 : 1) * sizeof(TCHAR));
+    if ((lpszStringBackup != NULL) && (lpszString != NULL))
         _tcscpy(lpszStringBackup, lpszString);
 
-    lpszStringStart = MYALLOC(EXTDIRLEN * sizeof(TCHAR));
-    if (lpszStringStart != NULL)
+    lpszStringStart = MYALLOC(((NULL != lpszString) ? _tcslen(lpszString) + 1 : 1) * sizeof(TCHAR));
+    if ((lpszStringStart != NULL) && (lpszString != NULL))
         _tcscpy(lpszStringStart, lpszString);
 
     for (i = 0; (NULL != pRegWhiteList[i].lpSkipString); i++) {

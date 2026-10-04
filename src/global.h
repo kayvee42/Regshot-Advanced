@@ -681,7 +681,7 @@ BOOL    InsertRootItems(HWND hwndTV, int iPropertyPage);
 HTREEITEM FindOrCreateTreeItem(HWND hwndTV, HTREEITEM hParent, HTREEITEM hItem, UINT nLevel, LPTSTR lpszNodeText, int iPropertyPage, BOOL bKey, LPCOMPRESULTNEW lpCR);
 BOOL    InitTreeViewItems(HWND hwndTV, int iPropertyPage);
 BOOL    InitTreeViewImageLists(HWND hwndTV);
-BOOL    CheckFilters(LPVOID lpContent, LPTSTR lpszKeyName, LPTSTR* lpszValueName, DWORD nActionType, BOOL* pbKey);
+BOOL    CheckFilters(LPVOID lpContent, LPTSTR* lplpszKeyName, LPTSTR* lpszValueName, DWORD nActionType, BOOL* pbKey);
 
 
 #define _MACROLINESIZE_ 2048
