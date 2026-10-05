@@ -8,26 +8,50 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - configuration: Release Unicode
+            artifact: Regshot-x64-Unicode
+          - configuration: Debug Unicode
+            artifact: Regshot-x64-Unicode-dbg
     steps:
       - uses: actions/checkout@v4
 
       - uses: microsoft/setup-msbuild@v2
 
-      # The project targets toolset v142 (VS 2019); the runner has VS 2022 (v143).
-      - name: Build x64 Release Unicode
-        run: msbuild regshot_vs2010.sln /m /p:Configuration="Release Unicode" /p:Platform=x64 /p:PlatformToolset=v143
+      # The Debug configs copy the sources to the author's VMware share after building;
+      # that path doesn't exist here, so clear the post-build step for CI only.
+      - name: Disable post-build copy
+        shell: pwsh
+        run: |
+          @'
+          <Project>
+            <ItemDefinitionGroup>
+              <PostBuildEvent>
+                <Command></Command>
+              </PostBuildEvent>
+            </ItemDefinitionGroup>
+          </Project>
+          '@ | Set-Content Directory.Build.targets
 
-      # Regshot loads its templates from a Templates folder next to the exe
+      # The project targets toolset v142 (VS 2019); the runner has VS 2022 (v143).
+      - name: Build x64 ${{ matrix.configuration }}
+        run: msbuild regshot_vs2010.sln /m /p:Configuration="${{ matrix.configuration }}" /p:Platform=x64 /p:PlatformToolset=v143
+
+      # Regshot loads its templates from a Templates folder next to the exe;
+      # the .pdb lets crash dumps resolve to functions and source lines.
       - name: Package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          Get-ChildItem bin -Recurse -Filter *.exe | Copy-Item -Destination dist
+          Get-ChildItem bin -Recurse -Include *.exe, *.pdb | Copy-Item -Destination dist
           Copy-Item -Recurse Templates dist/Templates
           Copy-Item files/regshot.ini, files/language.ini, files/ReadMe.txt, files/license_lgpl-2.1.txt dist/
           Get-ChildItem -Recurse dist
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Regshot-x64-Unicode
+          name: ${{ matrix.artifact }}
           path: dist
