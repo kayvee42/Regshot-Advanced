@@ -754,35 +754,37 @@ SKIPLIST* FillSkipList(SKIPLIST* pList, LPTSTR lpszIniSection, LPTSTR lpszSectio
 BOOL IsInSkipList(LPTSTR lpszString, SKIPLIST* pSkipList, BOOL bForOutput)  // tfx skip the list
 {
     int i;
-    LPTSTR pos, lpszStringStart;
+    LPTSTR pos, lpszWork;
 
     if ((BOOL)SendMessage(GetDlgItem(hMainWnd, IDC_CHECK_NOFILTERS), BM_GETCHECK, (WPARAM)0, (LPARAM)0))
         return FALSE;
+    if (NULL == lpszString)
+        return FALSE;
 
-    lpszStringStart = MYALLOC(((NULL != lpszString) ? _tcslen(lpszString) + 1 : 1) * sizeof(TCHAR));
-    if ((lpszStringStart != NULL) && (lpszString != NULL))
-        _tcscpy(lpszStringStart, lpszString);
+    // Shorten a private copy only; lpszString may be read-only (e.g. the root key names TEXT("HKLM") etc.)
+    lpszWork = MYALLOC((_tcslen(lpszString) + 1) * sizeof(TCHAR));
+    if (NULL == lpszWork)
+        return FALSE;
 
     for (i = 0; (NULL != pSkipList[i].lpSkipString); i++) {
-        if ((lpszString != NULL) && (lpszStringStart != NULL))
-            _tcscpy(lpszString, lpszStringStart);
-        pos = lpszString;
+        _tcscpy(lpszWork, lpszString);
+        pos = lpszWork;
         while (NULL != pos) {
-            if ((0 == _tcsicmp(lpszString, pSkipList[i].lpSkipString) && (pSkipList[i].bSkipKeyActive) && (!pSkipList[i].bDeleted))) {
-                MYFREE(lpszStringStart);
+            if ((0 == _tcsicmp(lpszWork, pSkipList[i].lpSkipString) && (pSkipList[i].bSkipKeyActive) && (!pSkipList[i].bDeleted))) {
+                MYFREE(lpszWork);
                 return TRUE;
             }
             if (bForOutput) {
-                pos = _tcsrchr(lpszString, _T('\\'));
+                pos = _tcsrchr(lpszWork, _T('\\'));
                 if (NULL != pos)
-                    _tcscpy(pos, TEXT("\0"));
+                    *pos = (TCHAR)'\0';
             }
             else
                 break;
         }
 
     }
-    MYFREE(lpszStringStart);
+    MYFREE(lpszWork);
 
     return FALSE;
 }
@@ -793,7 +795,7 @@ BOOL IsInSkipList(LPTSTR lpszString, SKIPLIST* pSkipList, BOOL bForOutput)  // t
 BOOL IsInWhiteList(LPTSTR lpszString, BOOL bForOutput)  // tfx skip the list
 {
     int i;
-    LPTSTR pos, lpszStringStart, lpszStringBackup;
+    LPTSTR pos, lpszWork;
     BOOL bWhiteListeActive = FALSE;
 
     for (i = 0; (NULL != pRegWhiteList[i].lpSkipString); i++) {
@@ -805,40 +807,33 @@ BOOL IsInWhiteList(LPTSTR lpszString, BOOL bForOutput)  // tfx skip the list
     if (!bWhiteListeActive)
         return TRUE;
 
-    lpszStringBackup = MYALLOC(((NULL != lpszString) ? _tcslen(lpszString) + 1 : 1) * sizeof(TCHAR));
-    if ((lpszStringBackup != NULL) && (lpszString != NULL))
-        _tcscpy(lpszStringBackup, lpszString);
+    if (NULL == lpszString)
+        return FALSE;
 
-    lpszStringStart = MYALLOC(((NULL != lpszString) ? _tcslen(lpszString) + 1 : 1) * sizeof(TCHAR));
-    if ((lpszStringStart != NULL) && (lpszString != NULL))
-        _tcscpy(lpszStringStart, lpszString);
+    // Shorten a private copy only, never the caller's string
+    lpszWork = MYALLOC((_tcslen(lpszString) + 1) * sizeof(TCHAR));
+    if (NULL == lpszWork)
+        return FALSE;
 
     for (i = 0; (NULL != pRegWhiteList[i].lpSkipString); i++) {
-        if ((lpszString != NULL) && (lpszStringStart != NULL))
-            _tcscpy(lpszString, lpszStringStart);
-        pos = lpszString;
+        _tcscpy(lpszWork, lpszString);
+        pos = lpszWork;
         while (NULL != pos) {
-            if ((0 == _tcsicmp(lpszString, pRegWhiteList[i].lpSkipString) && (pRegWhiteList[i].bSkipKeyActive) && (!pRegWhiteList[i].bDeleted))) {
-                if ((lpszString != NULL) && (lpszStringBackup != NULL))
-                    _tcscpy(lpszString, lpszStringBackup);
-                MYFREE(lpszStringBackup);
-                MYFREE(lpszStringStart);
+            if ((0 == _tcsicmp(lpszWork, pRegWhiteList[i].lpSkipString) && (pRegWhiteList[i].bSkipKeyActive) && (!pRegWhiteList[i].bDeleted))) {
+                MYFREE(lpszWork);
                 return TRUE;
             }
             if (bForOutput) {
-                pos = _tcsrchr(lpszString, _T('\\'));
+                pos = _tcsrchr(lpszWork, _T('\\'));
                 if (NULL != pos)
-                    _tcscpy(pos, TEXT("\0")); 
+                    *pos = (TCHAR)'\0';
             }
             else
                 break;
         }
 
     }
-    if ((lpszString != NULL) && (lpszStringBackup != NULL))
-        _tcscpy(lpszString, lpszStringBackup);
-    MYFREE(lpszStringBackup);
-    MYFREE(lpszStringStart);
+    MYFREE(lpszWork);
     
     return FALSE;
 }

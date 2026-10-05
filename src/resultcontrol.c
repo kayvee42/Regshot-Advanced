@@ -751,7 +751,7 @@ BOOL CheckFilters(LPVOID lpContent, LPTSTR * lplpszKeyName, LPTSTR * lpszValueNa
         if ((((LPVALUECONTENT)(lpContent))->lpszValueName != NULL) && (lpszValueName != NULL))
             *lpszValueName = ((LPVALUECONTENT)(lpContent))->lpszValueName;
     }
-    // copy before filtering, as IsInSkipList() may shorten lpszFullName
+    // copy handed back to the caller
     lpszKeyName = DuplicateName(lpszFullName);
 
     if ((KEYDEL == nActionType) || (KEYADD == nActionType) ||
