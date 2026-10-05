@@ -948,6 +948,57 @@ VOID CreateNewResult(DWORD nActionType, LPVOID lpContentOld, LPVOID lpContentNew
 
 
 //-------------------------------------------------------------
+// TXT/HTML: decoded text of a REG_EXPAND_SZ or REG_MULTI_SZ value as an
+// extra line '  = "text"' resp. '  = "a", "b"' (NULL if not applicable)
+//-------------------------------------------------------------
+static LPTSTR GetValueDataAsTextLine(LPVALUECONTENT lpVC)
+{
+    LPTSTR lpszSrc;
+    LPTSTR lpszLine;
+    size_t cchSrc;
+    size_t iSrc;
+    size_t iDst;
+
+    if ((NULL == lpVC) || (NULL == lpVC->lpValueData)) {
+        return NULL;
+    }
+    if ((REG_EXPAND_SZ != lpVC->nTypeCode) && (REG_MULTI_SZ != lpVC->nTypeCode)) {
+        return NULL;
+    }
+
+    lpszSrc = (LPTSTR)lpVC->lpValueData;
+    cchSrc = lpVC->cbData / sizeof(TCHAR);
+    if (REG_EXPAND_SZ == lpVC->nTypeCode) {
+        cchSrc = _tcsnlen(lpszSrc, cchSrc);  // a single string
+    }
+
+    // "  = \"" + worst case 4 chars per source char ("\", \"" separators) + "\"" + NULL
+    lpszLine = MYALLOC0((5 + 4 * cchSrc + 2) * sizeof(TCHAR));
+    if (NULL == lpszLine) {
+        return NULL;
+    }
+    _tcscpy(lpszLine, TEXT("  = \""));
+    iDst = 5;
+    for (iSrc = 0; iSrc < cchSrc; iSrc++) {
+        if ((TCHAR)'\0' == lpszSrc[iSrc]) {
+            // REG_MULTI_SZ: end of one string; stop at the terminating empty string
+            if ((iSrc + 1 >= cchSrc) || ((TCHAR)'\0' == lpszSrc[iSrc + 1])) {
+                break;
+            }
+            _tcscpy(lpszLine + iDst, TEXT("\", \""));
+            iDst += 4;
+            continue;
+        }
+        // keep the result on one line
+        lpszLine[iDst++] = (0x20 > (_TUCHAR)lpszSrc[iSrc]) ? (TCHAR)'?' : lpszSrc[iSrc];
+    }
+    lpszLine[iDst++] = (TCHAR)'"';
+    lpszLine[iDst] = (TCHAR)'\0';
+
+    return lpszLine;
+}
+
+//-------------------------------------------------------------
 // Convert content to result strings
 //-------------------------------------------------------------
 size_t ResultToString(LPTSTR rgszResultStrings[], size_t iResultStringsMac, size_t iLinesWrittenOldPart, DWORD nActionType, LPVOID lpContent, BOOL fNewContent, BOOL bSuppressKey, LPOUTPUTFILEDESCRIPTION pOutputFileDescription)
@@ -1060,6 +1111,11 @@ size_t ResultToString(LPTSTR rgszResultStrings[], size_t iResultStringsMac, size
         else
             lpszName = GetWholeValueName(lpContent, pOutputFileDescription->fUseLongRegHead);
         
+        // TXT/HTML: "name: data" plus a decoded text line for hex(2)/hex(7) values
+        LPTSTR lpszNameSeparator = TEXT(": ");
+        BOOL fNameSeparator = FALSE;
+        LPTSTR lpszTextLine = NULL;
+
         cchData = 0;
         if (((pOutputFileDescription->iOutputType == OUT_UNL) || (pOutputFileDescription->iOutputType == OUT_HTML) || (pOutputFileDescription->iOutputType == OUT_TXT) ||
             ((((pOutputFileDescription->iOutputType == OUT_ISS_DEINSTALL) || (pOutputFileDescription->iOutputType == OUT_NSI_DEINSTALL) || (pOutputFileDescription->iOutputType == OUT_REG_DEINSTALL)) && ((nActionType == VALDEL) || (nActionType == VALMODI))) ||
@@ -1073,7 +1129,14 @@ size_t ResultToString(LPTSTR rgszResultStrings[], size_t iResultStringsMac, size
 //                LPVALUECONTENT lpTest = lpContent;
                 cchData = ((LPVALUECONTENT)lpContent)->cchValueName + 2; // *_tcslen(lpszREGValueEnclosing);
             }
+            if ((pOutputFileDescription->iOutputType == OUT_TXT) || (pOutputFileDescription->iOutputType == OUT_HTML)) {
+                fNameSeparator = TRUE;
+                cchData += _tcslen(lpszNameSeparator);  // first data line wraps after name + separator
+            }
             GetWholeValueData(lpszValueData, lpContent, nActionType, cchData, pOutputFileDescription->iOutputType);
+            if (fNameSeparator) {
+                lpszTextLine = GetValueDataAsTextLine((LPVALUECONTENT)lpContent);
+            }
 //            if (NULL != lpszData) {
 //                cchData = _tcslen(lpszData);
 //            }
@@ -1087,11 +1150,16 @@ size_t ResultToString(LPTSTR rgszResultStrings[], size_t iResultStringsMac, size
                 cchData = (i == 0 ? _tcslen(lpszName) : 0) + 1;
                 if (lpszValueData[i] != NULL)
                     cchData += _tcslen(lpszValueData[i]);
+                if ((i == 0) && fNameSeparator && (lpszValueData[i] != NULL))
+                    cchData += _tcslen(lpszNameSeparator);
                 rgszResultStrings[iResultStringsNew] = MYALLOC(cchData * sizeof(TCHAR));
                 if (i == 0) {
                     _tcscpy(rgszResultStrings[iResultStringsNew], lpszName);
-                    if (lpszValueData[i] != NULL)
+                    if (lpszValueData[i] != NULL) {
+                        if (fNameSeparator)
+                            _tcscat(rgszResultStrings[iResultStringsNew], lpszNameSeparator);
                         _tcscat(rgszResultStrings[iResultStringsNew], lpszValueData[i]);
+                    }
                 }
                 else {
                     _tcscpy(rgszResultStrings[iResultStringsNew], lpszValueData[i]);
@@ -1101,6 +1169,15 @@ size_t ResultToString(LPTSTR rgszResultStrings[], size_t iResultStringsMac, size
                 MYFREE(lpszValueData[i]);
                 lpszValueData[i] = NULL;
                 iResultStringsNew++;
+            }
+        }
+        if (NULL != lpszTextLine) {
+            if (iResultStringsNew - iLinesWrittenOldPart < nOutMaxResultLines) {
+                rgszResultStrings[iResultStringsNew] = lpszTextLine;
+                iResultStringsNew++;
+            }
+            else {
+                MYFREE(lpszTextLine);
             }
         }
         //for (int i = 0; i < MAX_RESULT_STRINGS; i++) {
