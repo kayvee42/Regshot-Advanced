@@ -259,15 +259,15 @@ LPTSTR TransData(LPTSTR lpszValueData[], LPVALUECONTENT lpVC, DWORD nConversionT
 
     _tcscpy(lpszValueType, lpszEmpty);
     if ((iOutputType == OUT_ISS_DEINSTALL) || (iOutputType == OUT_ISS_INSTALL)) {
-        _tcscpy(lpszDivider, TEXT(" "));
+        lpszDivider = TEXT(" ");
         _tcscpy(lpszValueType, lpszEmpty);
     }
     else if ((iOutputType == OUT_NSI_DEINSTALL) || (iOutputType == OUT_NSI_INSTALL)) {
-        _tcscpy(lpszDivider, lpszEmpty);
+        lpszDivider = lpszEmpty;
         _tcscpy(lpszValueType, lpszEmpty);
     }
     else {
-        _tcscpy(lpszDivider, TEXT(","));
+        lpszDivider = TEXT(",");
     }
 
     switch (nConversionType) {
@@ -321,7 +321,7 @@ LPTSTR TransData(LPTSTR lpszValueData[], LPVALUECONTENT lpVC, DWORD nConversionT
                 _tcscat(lpszValueType, TEXT("$"));
             else if ((iOutputType == OUT_NSI_INSTALL) || (iOutputType == OUT_NSI_DEINSTALL)) {
                 _tcscat(lpszValueType, lpszEmpty);
-                _tcscpy(lpszDivider, TEXT(","));
+                lpszDivider = TEXT(",");
             }
             else
                 _tcscat(lpszValueType, TEXT("hex(7):"));
@@ -335,7 +335,7 @@ LPTSTR TransData(LPTSTR lpszValueData[], LPVALUECONTENT lpVC, DWORD nConversionT
         case REG_QWORD:
             if ((iOutputType == OUT_ISS_INSTALL) || (iOutputType == OUT_ISS_DEINSTALL)) {
                 _tcscat(lpszValueType, TEXT("$"));
-                _tcscpy(lpszDivider, lpszEmpty);
+                lpszDivider = lpszEmpty;
             }
             else
                 _tcscat(lpszValueType, TEXT("hex(b):"));
@@ -1777,7 +1777,7 @@ BOOL OutputComparisonResult(VOID)
                 _tcscat(lpszMacroFileName, OutputFileDescription.lpszFormat);
                 _tcscat(lpszMacroFileName, TEXT(".tpl"));
             }
-            OutputFileDescription.lpszComment = TEXT(";");
+            OutputFileDescription.lpszComment = MYALLOC0(nSize * sizeof(TCHAR));  // was read into the literal TEXT(";"), read-only in Release
             cchDataline = GetPrivateProfileString(TEXT("$$SETUP$$"), TEXT("Comment"), TEXT(";"), OutputFileDescription.lpszComment, nSize, lpszMacroFileName);
             OutputFileDescription.lpszExtension = MYALLOC0(20 * sizeof(TCHAR));
             cchDataline = GetPrivateProfileString(TEXT("$$SETUP$$"), TEXT("Extension"), TEXT(".XXX"), OutputFileDescription.lpszExtension, nSize, lpszMacroFileName);
@@ -2152,6 +2152,7 @@ BOOL OutputComparisonResult(VOID)
         MYFREE(lpszDestFileName);
 
         MYFREE(OutputFileDescription.lpszFormat);
+        MYFREE(OutputFileDescription.lpszComment);
         MYFREE(OutputFileDescription.lpszExtension);
         if (OutputFileDescription.lpszOutFile != NULL)
             MYFREE(OutputFileDescription.lpszOutFile);
